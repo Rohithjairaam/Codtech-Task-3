@@ -1,0 +1,165 @@
+#include <SFML/Graphics.hpp>
+#include <vector>
+#include <ctime>
+#include <cstdlib>
+
+using namespace sf;
+
+// Constants
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+const int GRID_SIZE = 20;
+
+// Direction Enum
+enum Direction { Up, Down, Left, Right };
+
+class SnakeGame {
+private:
+    RenderWindow window;
+    RectangleShape snakeSegment;
+    RectangleShape food;
+    std::vector<Vector2f> snakeBody;
+    Vector2f foodPosition;
+    Direction dir;
+    int score;
+    bool gameOver;
+
+    // Initialize the game
+    void initializeGame() {
+        snakeBody.clear();
+        snakeBody.push_back(Vector2f(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2)); // Start in the middle
+        dir = Right;
+        score = 0;
+        gameOver = false;
+        spawnFood();
+    }
+
+    // Spawn food at a random position
+    void spawnFood() {
+        int x = (rand() % (WINDOW_WIDTH / GRID_SIZE)) * GRID_SIZE;
+        int y = (rand() % (WINDOW_HEIGHT / GRID_SIZE)) * GRID_SIZE;
+        foodPosition = Vector2f(x, y);
+        food.setPosition(foodPosition);
+    }
+
+    // Check collisions
+    void checkCollision() {
+        // Check collision with walls
+        if (snakeBody[0].x < 0 || snakeBody[0].x >= WINDOW_WIDTH ||
+            snakeBody[0].y < 0 || snakeBody[0].y >= WINDOW_HEIGHT) {
+            gameOver = true;
+        }
+
+        // Check collision with itself
+        for (size_t i = 1; i < snakeBody.size(); i++) {
+            if (snakeBody[0] == snakeBody[i]) {
+                gameOver = true;
+            }
+        }
+
+        // Check collision with food
+        if (snakeBody[0] == foodPosition) {
+            snakeBody.push_back(snakeBody.back()); // Grow the snake
+            score += 10;
+            spawnFood();
+        }
+    }
+
+    // Update snake position
+    void moveSnake() {
+        for (size_t i = snakeBody.size() - 1; i > 0; i--) {
+            snakeBody[i] = snakeBody[i - 1];
+        }
+
+        switch (dir) {
+        case Up:    snakeBody[0].y -= GRID_SIZE; break;
+        case Down:  snakeBody[0].y += GRID_SIZE; break;
+        case Left:  snakeBody[0].x -= GRID_SIZE; break;
+        case Right: snakeBody[0].x += GRID_SIZE; break;
+        }
+    }
+
+    // Draw everything
+    void render() {
+        window.clear(Color::Black);
+
+        // Draw the snake
+        for (const auto& segment : snakeBody) {
+            snakeSegment.setPosition(segment);
+            window.draw(snakeSegment);
+        }
+
+        // Draw the food
+        window.draw(food);
+
+        // Display the score
+        Font font;
+        if (font.loadFromFile("arial.ttf")) {
+            Text scoreText("Score: " + std::to_string(score), font, 20);
+            scoreText.setFillColor(Color::White);
+            scoreText.setPosition(10, 10);
+            window.draw(scoreText);
+        }
+
+        window.display();
+    }
+
+public:
+    SnakeGame()
+        : window(VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Snake Game"),
+          snakeSegment(Vector2f(GRID_SIZE, GRID_SIZE)),
+          food(Vector2f(GRID_SIZE, GRID_SIZE)) {
+        snakeSegment.setFillColor(Color::Green);
+        food.setFillColor(Color::Red);
+        initializeGame();
+    }
+
+    // Run the game
+    void run() {
+        Clock clock;
+        float timer = 0.0f, delay = 0.1f;
+
+        while (window.isOpen()) {
+            // Handle events
+            Event event;
+            while (window.pollEvent(event)) {
+                if (event.type == Event::Closed)
+                    window.close();
+            }
+
+            // Keyboard input
+            if (Keyboard::isKeyPressed(Keyboard::Up) && dir != Down) dir = Up;
+            if (Keyboard::isKeyPressed(Keyboard::Down) && dir != Up) dir = Down;
+            if (Keyboard::isKeyPressed(Keyboard::Left) && dir != Right) dir = Left;
+            if (Keyboard::isKeyPressed(Keyboard::Right) && dir != Left) dir = Right;
+
+            // Timer for controlling the snake speed
+            float time = clock.restart().asSeconds();
+            timer += time;
+
+            if (timer > delay) {
+                timer = 0;
+                if (!gameOver) {
+                    moveSnake();
+                    checkCollision();
+                }
+            }
+
+            // Render the game
+            render();
+
+            // Game over condition
+            if (gameOver) {
+                window.close();
+                std::cout << "Game Over! Final Score: " << score << "\n";
+            }
+        }
+    }
+};
+
+int main() {
+    srand(static_cast<unsigned>(time(0)));
+    SnakeGame game;
+    game.run();
+    return 0;
+}
